@@ -9,7 +9,8 @@ function setup() {
 }
 
 function draw() {
-background(0);
+let bgKleur = map(x, 0, width, 0, 255);
+background(bgKleur);
   
   if (x > width || x < 0) {
     speed = speed * -1; 
