@@ -153,10 +153,13 @@
             }
 
             show() {
-                stroke(0, 255, 204);
-                strokeWeight(2);
-                point(this.pos.x, this.pos.y);
-            }
+    // Kleur gebaseerd op snelheid (hoe sneller, hoe lichter/feller de 'bliksem')
+    let speed = this.vel.mag();
+    let r = map(speed, 0, this.maxSpeed, 50, 255);
+    stroke(r, 100, 255, 150); // Paars/blauwachtige storm-gloed
+    strokeWeight(map(speed, 0, this.maxSpeed, 1, 4));
+    line(this.pos.x, this.pos.y, this.pos.x - this.vel.x * 2, this.pos.y - this.vel.y * 2);
+}
         }
 
         function windowResized() {
