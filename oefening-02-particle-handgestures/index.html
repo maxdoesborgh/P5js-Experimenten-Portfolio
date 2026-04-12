@@ -3,47 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Attention Storm - Transition Demo</title>
+    <title>Attention Storm - Typography & Glitch</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
     <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', monospace; }
         #status-ui {
             position: absolute; top: 30px; left: 30px; z-index: 100;
-            color: #fff; background: rgba(0,0,0,0.6);
-            padding: 20px; border-radius: 5px; border-left: 4px solid #fff;
-            pointer-events: none;
+            color: #ff4444; background: rgba(0,0,0,0.8);
+            padding: 20px; border-radius: 2px; border: 1px solid #ff4444;
+            pointer-events: none; text-transform: uppercase; letter-spacing: 1px;
+            min-width: 200px;
         }
-        .mode-text { font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 5px; }
-        .chaos { color: #ff4444; }
-        .rust { color: #00ffcc; }
+        .mode-text { font-weight: bold; font-size: 16px; margin-bottom: 10px; }
+        #volumeSlider { pointer-events: auto !important; width: 100%; cursor: pointer; accent-color: #00ffcc; margin-top: 10px; }
+        .rust-ui { color: #00ffcc !important; border-color: #00ffcc !important; }
     </style>
 </head>
 <body>
 
     <div id="status-ui">
-        <div id="loader" class="mode-text">KLIK OM DE STORM TE BETREDEN...</div>
-        <div id="stability-meter" style="font-size: 11px; color: #ccc;">Status: Systeem paraat</div>
+        <div id="loader" class="mode-text">KLIK OM TE STARTEN...</div>
+        <div id="stability-meter" style="font-size: 11px; color: #aaa;">Status: Wachten op interactie</div>
+        <div style="font-size: 10px; color: #fff; margin-top: 15px; letter-spacing: 2px;">MASTER VOLUME</div>
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
     </div>
 
     <script>
-        let handpose;
-        let video;
+        let handpose, video;
         let stormNoise, filter, osc;
         let hands = [];
         let particles = [];
-        const numParticles = 450; 
+        let hashtags = ["#FOMO", "#OVERPRIKKELD", "#MELDING", "#SCROLLEN", "#CHAOS", "#TIKTOKBREIN", "#DOOMSCROLLEN", "#DRUK", "#ALTIJDAAN", "#SENSORYOVERLOAD"];
         
         let audioActive = false;
-        let handStability = 0; // 0 = Chaos (Moodboard 2), 1 = Rust (Moodboard 1)
+        let handStability = 0; 
         let prevTipY = 0;
+        let volumeSlider;
 
         function setup() {
             createCanvas(windowWidth, windowHeight);
-            
+            volumeSlider = document.getElementById('volumeSlider');
+            volumeSlider.addEventListener('mousedown', (e) => e.stopPropagation());
+
             video = createCapture(VIDEO, () => {
                 handpose = ml5.handpose(video, modelReady);
                 handpose.on("predict", results => { hands = results; });
@@ -51,17 +56,14 @@
             video.size(640, 480);
             video.hide();
 
-            // Geluid Setup
             filter = new p5.LowPass();
             stormNoise = new p5.Noise('pink');
             stormNoise.disconnect();
             stormNoise.connect(filter);
-            
-            osc = new p5.Oscillator('sine'); // Sine is rustiger dan sawtooth
+            osc = new p5.Oscillator('sine');
             osc.amp(0);
-            osc.freq(50);
 
-            for (let i = 0; i < numParticles; i++) {
+            for (let i = 0; i < 300; i++) {
                 particles.push(new Particle());
             }
         }
@@ -71,8 +73,7 @@
         }
 
         function draw() {
-            // De achtergrond wordt zwarter (legere ruimte) naarmate de hand stabieler is
-            let bgAlpha = map(handStability, 0, 1, 40, 80);
+            let bgAlpha = map(handStability, 0, 1, 20, 100);
             background(0, bgAlpha); 
             
             let handDetected = false;
@@ -85,61 +86,79 @@
                 targetX = map(tip[0], 0, 640, width, 0);
                 targetY = map(tip[1], 50, 380, 0, height);
 
-                // --- STABILITEIT METEN (DE KERN VAN JE CONCEPT) ---
                 let tipVelocity = abs(tip[1] - prevTipY);
                 prevTipY = tip[1];
+                let currentTargetStability = map(tipVelocity, 0, 12, 1, 0); 
+                handStability = lerp(handStability, constrain(currentTargetStability, 0, 1), 0.05);
 
-                // Als beweging laag is, stijgt de rust (Moodboard 1)
-                let currentTargetStability = map(tipVelocity, 0, 10, 1, 0);
-                currentTargetStability = constrain(currentTargetStability, 0, 1);
-                
-                // Lerp zorgt voor een vloeiende transitie tussen de twee moods
-                handStability = lerp(handStability, currentTargetStability, 0.03);
-
-                // UI Update
                 updateUI();
             } else {
-                // Geen hand? Terug naar volledige chaos
-                handStability = lerp(handStability, 0, 0.01);
+                handStability = lerp(handStability, 0, 0.02);
                 document.getElementById('loader').innerText = "GEEN FOCUS - CHAOS ⚡";
-                document.getElementById('loader').className = "mode-text chaos";
             }
 
-            // --- MULTI-SENSORY AUDIO TRANSITIE ---
+            // Audio
             if (audioActive) {
                 if (!osc.started) { osc.start(); stormNoise.start(); osc.started = true; }
-                
+                let mVol = volumeSlider.value;
                 let chaosLevel = 1 - handStability;
-                
-                // Chaos = Open filter, harde ruis (Overprikkeling)
-                // Rust = Dicht filter, zachte diepe brom (Minimalisme)
-                filter.freq(map(chaosLevel, 0, 1, 100, 5000));
-                stormNoise.amp(map(chaosLevel, 0, 1, 0.02, 0.25), 0.1);
-                
-                osc.amp(map(handStability, 0, 1, 0.05, 0.2), 0.1);
-                osc.freq(map(handStability, 0, 1, 60, 40)); // Lager is rustiger
+                filter.freq(map(chaosLevel, 0, 1, 100, 6000));
+                stormNoise.amp(map(chaosLevel, 0, 1, 0, 0.4) * mVol, 0.1); 
+                osc.amp(map(handStability, 0, 1, 0, 0.25) * mVol, 0.1);
+                osc.freq(map(handStability, 0, 1, 60, 45));
+            }
+
+            // Teken Typografie Chaos
+            if (handStability < 0.7) {
+                drawTypoChaos();
             }
 
             // Teken deeltjes
             for (let p of particles) {
-                if (handDetected) {
-                    p.attract(targetX, targetY);
-                } else {
-                    p.float();
-                }
+                if (handDetected) p.attract(targetX, targetY);
+                else p.float();
                 p.update(handStability);
                 p.show(handStability);
             }
         }
 
+        function drawTypoChaos() {
+            // Hoe meer chaos, hoe meer tekst
+            let numWords = map(handStability, 0, 0.7, 15, 0);
+            
+            for (let i = 0; i < numWords; i++) {
+                if (random() > 0.9) { // Flitseffect
+                    let word = random(hashtags);
+                    let x = random(width);
+                    let y = random(height);
+                    let size = random(20, 80) * (1 - handStability);
+                    
+                    push();
+                    translate(x, y);
+                    rotate(random(-0.1, 0.1));
+                    
+                    // Glitch kleur
+                    if (random() > 0.5) fill(255, 0, 50, 150);
+                    else fill(0, 200, 255, 150);
+                    
+                    textAlign(CENTER);
+                    textSize(size);
+                    textStyle(BOLD);
+                    text(word, random(-5, 5), random(-5, 5));
+                    pop();
+                }
+            }
+        }
+
         function updateUI() {
             let loader = document.getElementById('loader');
-            if (handStability > 0.7) {
+            let ui = document.getElementById('status-ui');
+            if (handStability > 0.75) {
                 loader.innerText = "HARMONIE GEVONDEN ✨";
-                loader.className = "mode-text rust";
+                ui.classList.add('rust-ui');
             } else {
                 loader.innerText = "ZOEK NAAR RUST...";
-                loader.className = "mode-text";
+                ui.classList.remove('rust-ui');
             }
             document.getElementById('stability-meter').innerText = "Focus Niveau: " + floor(handStability * 100) + "%";
         }
@@ -156,66 +175,49 @@
                 this.pos = createVector(random(width), random(height));
                 this.vel = createVector(random(-1, 1), random(-1, 1));
                 this.acc = createVector(0, 0);
-                this.history = []; // Voor organische sporen (Moodboard 1)
+                this.shapeType = random() > 0.5 ? 'rect' : 'ellipse'; 
             }
-
             attract(tx, ty) {
                 let target = createVector(tx, ty);
                 let force = p5.Vector.sub(target, this.pos);
                 let d = force.mag();
-                // De radius wordt kleiner (minimalisme) naarmate je stabieler bent
-                let radius = map(handStability, 0, 1, width * 0.9, width * 0.3);
-                
+                let radius = map(handStability, 0, 1, width * 1.0, width * 0.4);
                 if (d < radius) {
-                    force.setMag(0.2);
+                    force.setMag(0.25);
                     this.acc.add(force);
                 }
             }
-
             float() {
                 let n = noise(this.pos.x * 0.005, this.pos.y * 0.005, frameCount * 0.01);
                 let steer = p5.Vector.fromAngle(TWO_PI * n);
-                this.acc.add(steer.mult(0.05));
+                this.acc.add(steer.mult(0.06));
             }
-
             update(stability) {
-                let maxSpeed = map(stability, 0, 1, 6, 1.2); // Veel trager bij rust
+                let maxSpeed = map(stability, 0, 1, 8, 1.3);
                 this.vel.add(this.acc);
                 this.vel.limit(maxSpeed);
                 this.pos.add(this.vel);
                 this.acc.mult(0);
                 this.vel.mult(0.97);
-
-                if (this.pos.y > height) this.pos.y = 0;
-                if (this.pos.y < 0) this.pos.y = height;
-                if (this.pos.x > width) this.pos.x = 0;
-                if (this.pos.x < 0) this.pos.x = width;
+                if (this.pos.y > height) this.pos.y = 0; if (this.pos.y < 0) this.pos.y = height;
+                if (this.pos.x > width) this.pos.x = 0; if (this.pos.x < 0) this.pos.x = width;
             }
-
             show(stability) {
-                let speed = this.vel.mag();
-                // Kleuren van Moodboard 2 (Rood/Blauw/Wit) naar Moodboard 1 (Zwart/Wit/Zacht grijs)
-                let chaosColor = color(255, 50, 100, 150); // Fel roodachtig
-                let rustColor = color(200, 220, 255, 100);  // Zacht blauw/wit
-                let finalColor = lerpColor(chaosColor, rustColor, stability);
-                
-                stroke(finalColor);
-                
-                if (stability < 0.5) {
-                    // CHAOS MODUS: Hoekige lijnen, fragmentatie
-                    strokeWeight(map(speed, 0, 5, 1, 4));
-                    line(this.pos.x, this.pos.y, this.pos.x - this.vel.x * 3, this.pos.y - this.vel.y * 3);
+                if (stability < 0.6) {
+                    fill(lerpColor(color(255, 0, 50, 150), color(0, 200, 255, 150), random()));
+                    noStroke();
+                    let sz = map(this.vel.mag(), 0, 8, 5, 50);
+                    if (this.shapeType === 'rect') rect(this.pos.x, this.pos.y, sz, sz/2);
+                    else ellipse(this.pos.x, this.pos.y, sz, sz);
                 } else {
-                    // RUST MODUS: Organische punten, lege ruimte
-                    strokeWeight(map(stability, 0.5, 1, 3, 1));
+                    stroke(200, 230, 255, 180);
+                    strokeWeight(map(stability, 0.6, 1, 4, 1.5));
                     point(this.pos.x, this.pos.y);
                 }
             }
         }
 
-        function windowResized() {
-            resizeCanvas(windowWidth, windowHeight);
-        }
+        function windowResized() { resizeCanvas(windowWidth, windowHeight); }
     </script>
 </body>
 </html>
