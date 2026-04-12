@@ -3,220 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attention Storm - Hybrid Chaos & Zen</title>
+    <title>Attention Storm - Final Vertical Build</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
     <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 
-    <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', monospace; }
-        #status-ui {
-            position: absolute; top: 30px; left: 30px; z-index: 100;
-            color: #ff4444; background: rgba(0,0,0,0.85);
-            padding: 20px; border-radius: 2px; border: 1px solid #ff4444;
-            pointer-events: none; text-transform: uppercase; letter-spacing: 1px;
-            min-width: 220px;
-        }
-        #volumeSlider { pointer-events: auto !important; width: 100%; cursor: pointer; accent-color: #00ffcc; margin-top: 10px; }
-        .zen-ui { color: #00ffcc !important; border-color: #00ffcc !important; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="status-ui">
         <div id="loader" style="font-weight: bold;">SYSTEEM LADEN...</div>
         <div id="stability-meter" style="font-size: 11px; margin-top: 5px;">Wachten op interactie</div>
-        <div style="font-size: 9px; color: #fff; margin-top: 15px;">MASTER VOLUME</div>
+        
+        <div style="font-size: 9px; color: #fff; margin-top: 15px; letter-spacing: 2px;">MASTER VOLUME</div>
         <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.5">
     </div>
 
-    <script>
-        let handpose, video;
-        let stormNoise, filter, zenOsc;
-        let hands = [];
-        let particles = [];
-        let hashtags = ["#FOMO", "#OVERPRIKKELD", "#MELDING", "#DOOMSCROLLEN", "#CHAOS", "#TIKTOKBREIN"];
-        let zenWords = ["静寂", "調和"];
-        
-        let audioActive = false;
-        let handStability = 0; 
-        let prevTipY = 0;
-        let glitchTimer = 0;
-
-        function setup() {
-            createCanvas(windowWidth, windowHeight);
-            
-            video = createCapture(VIDEO, () => {
-                handpose = ml5.handpose(video, modelReady);
-                handpose.on("predict", results => { hands = results; });
-            });
-            video.size(640, 480);
-            video.hide();
-
-            // Audio Setup
-            filter = new p5.LowPass();
-            stormNoise = new p5.Noise('pink');
-            stormNoise.disconnect();
-            stormNoise.connect(filter);
-            
-            zenOsc = new p5.Oscillator('sine'); 
-            zenOsc.amp(0);
-            zenOsc.freq(110); 
-
-            for (let i = 0; i < 350; i++) {
-                particles.push(new Particle());
-            }
-        }
-
-        function modelReady() {
-            document.getElementById('loader').innerText = "STORM ACTIEF ⚡";
-        }
-
-        function draw() {
-            // Dynamische achtergrond: van rauw grijs/zwart naar diep zwart
-            let bgAlpha = map(handStability, 0, 1, 30, 100);
-            background(0, bgAlpha); 
-            
-            let handDetected = false;
-            let tx = mouseX, ty = mouseY;
-
-            if (hands && hands.length > 0) {
-                handDetected = true;
-                let tip = hands[0].annotations.indexFinger[3];
-                tx = map(tip[0], 0, 640, width, 0);
-                ty = map(tip[1], 50, 380, 0, height);
-
-                let tipVelocity = abs(tip[1] - prevTipY);
-                prevTipY = tip[1];
-                let targetStability = map(tipVelocity, 0, 12, 1, 0); 
-                handStability = lerp(handStability, constrain(targetStability, 0, 1), 0.05);
-                updateUI();
-            } else {
-                handStability = lerp(handStability, 0, 0.02);
-            }
-
-            // --- AUDIO ENGINE ---
-            if (audioActive) {
-                if (!zenOsc.started) { zenOsc.start(); stormNoise.start(); zenOsc.started = true; }
-                let vol = document.getElementById('volumeSlider').value;
-                
-                // Chaos Noise
-                let chaosAmt = 1 - handStability;
-                filter.freq(map(chaosAmt, 0, 1, 100, 6000));
-                stormNoise.amp(map(chaosAmt, 0, 1, 0, 0.4) * vol, 0.1);
-                
-                // Zen Sine
-                let zenAmp = map(handStability, 0.6, 1, 0, 0.25);
-                zenOsc.amp(constrain(zenAmp, 0, 0.25) * vol, 0.2);
-                zenOsc.freq(110 + sin(frameCount * 0.02) * 3);
-            }
-
-            // --- VISUAL MODES ---
-            if (handStability < 0.5) {
-                applyGlitch(); // De rauwe glitch-engine
-                drawChaosTypo();
-            } else if (handStability > 0.8) {
-                drawZenTypo();
-            }
-
-            for (let p of particles) {
-                if (handDetected) p.attract(tx, ty);
-                else p.float();
-                p.update(handStability);
-                p.show(handStability);
-            }
-        }
-
-        function applyGlitch() {
-            glitchTimer++;
-            if (glitchTimer % 12 === 0) {
-                let x = random(width), y = random(height);
-                let w = random(100, 400), h = random(5, 50);
-                let img = get(x, y, w, h);
-                image(img, x + random(-30, 30), y + random(-5, 5));
-            }
-        }
-
-        function drawChaosTypo() {
-            if (random() > 0.9) {
-                fill(random() > 0.5 ? color(255, 0, 50) : color(0, 150, 255), 180);
-                textSize(random(30, 80));
-                textStyle(BOLD);
-                text(random(hashtags), random(width), random(height));
-            }
-        }
-
-        function drawZenTypo() {
-            fill(255, 120);
-            textSize(30);
-            textFont('serif');
-            let word = zenWords[0];
-            text(word[0], width - 60, 100);
-            text(word[1], width - 60, 140);
-        }
-
-        function updateUI() {
-            let loader = document.getElementById('loader');
-            let ui = document.getElementById('status-ui');
-            if (handStability > 0.75) {
-                loader.innerText = "SEIJAKU (STILTE) ✨";
-                ui.className = "zen-ui";
-            } else {
-                loader.innerText = "ATTENTION STORM ⚡";
-                ui.className = "";
-            }
-            document.getElementById('stability-meter').innerText = "Focus: " + floor(handStability * 100) + "%";
-        }
-
-        function mousePressed() { if (!audioActive) { userStartAudio(); audioActive = true; } }
-
-        class Particle {
-            constructor() {
-                this.pos = createVector(random(width), random(height));
-                this.vel = createVector(random(-1, 1), random(-1, 1));
-                this.acc = createVector(0, 0);
-                this.type = random() > 0.5 ? 'rect' : 'ellipse';
-            }
-
-            attract(tx, ty) {
-                let force = p5.Vector.sub(createVector(tx, ty), this.pos);
-                let d = force.mag();
-                let r = map(handStability, 0, 1, width, width * 0.3);
-                if (d < r) { force.setMag(0.25); this.acc.add(force); }
-            }
-
-            float() {
-                let n = noise(this.pos.x * 0.005, this.pos.y * 0.005, frameCount * 0.01);
-                this.acc.add(p5.Vector.fromAngle(TWO_PI * n).mult(0.06));
-            }
-
-            update(stability) {
-                this.vel.add(this.acc);
-                this.vel.limit(map(stability, 0, 1, 8, 1.2));
-                this.pos.add(this.vel);
-                this.acc.mult(0);
-                this.vel.mult(0.97);
-                if (this.pos.y > height) this.pos.y = 0; if (this.pos.y < 0) this.pos.y = height;
-                if (this.pos.x > width) this.pos.x = 0; if (this.pos.x < 0) this.pos.x = width;
-            }
-
-            show(stability) {
-                if (stability < 0.6) {
-                    // RAUWE CHAOS (Moodboard 2)
-                    fill(random() > 0.5 ? color(255, 0, 50, 180) : color(0, 200, 255, 180));
-                    noStroke();
-                    let sz = map(this.vel.mag(), 0, 8, 5, 60);
-                    if (this.type === 'rect') rect(this.pos.x, this.pos.y, sz, sz/2);
-                    else ellipse(this.pos.x, this.pos.y, sz, sz);
-                } else {
-                    // ZEN RUST (Moodboard 1)
-                    stroke(255, map(stability, 0.6, 1, 0, 180));
-                    strokeWeight(map(stability, 0.6, 1, 4, 1.5));
-                    point(this.pos.x, this.pos.y);
-                }
-            }
-        }
-    </script>
+    <script src="sketch.js"></script>
 </body>
 </html>
