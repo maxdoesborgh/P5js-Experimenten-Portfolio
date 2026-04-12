@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Invisible Controller - Werkende Demo</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        #status-ui {
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            color: #00ffcc; background: rgba(0,0,0,0.85);
+            padding: 20px; border-radius: 10px; border: 2px solid #00ffcc;
+            box-shadow: 0 0 15px rgba(0,255,204,0.3);
+        }
+        .loading { color: #ffcc00; animation: blink 1s infinite; }
+        .ready { color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
+        .error { color: #ff4444; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+    <div id="status-ui">
+        <div id="loader" class="loading">SYSTEEM INITIALISEREN... ⏳</div>
+        <div id="debug" style="font-size: 11px; margin-top: 8px; color: #aaa;">Status: Wachten op camera...</div>
+    </div>
+
+    <script>
+        let handpose;
+        let video;
+        let hands = [];
+        let particles = [];
+        const numParticles = 700; 
+
+        function setup() {
+            // Maak canvas over het hele scherm
+            createCanvas(windowWidth, windowHeight);
+            
+            // 1. Start de webcam met expliciete callback
+            video = createCapture(VIDEO, function(stream) {
+                document.getElementById('debug').innerText = "Status: Camera actief. Model laden...";
+                console.log("Webcam actief");
+            });
+            
+            video.size(640, 480);
+            video.hide();
+
+            // 2. Initialiseer Handpose
+            // We gebruiken een iets specifiekere versie van ml5 voor stabiliteit
+            handpose = ml5.handpose(video, modelReady);
+
+            // Luister naar voorspellingen
+            handpose.on("predict", results => {
+                hands = results;
+            });
+
+            // 3. Deeltjes aanmaken
+            for (let i = 0; i < numParticles; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function modelReady() {
+            console.log("Model is klaar!");
+            document.getElementById('loader').innerText = "CONTROLLER LIVE ✅";
+            document.getElementById('loader').className = "ready";
+            document.getElementById('debug').innerText = "Status: Gebruik je hand voor de camera.";
+        }
+
+        function draw() {
+            background(0, 40); // Licht 'trail' effect
+            
+            let targetX = mouseX; 
+            let targetY = mouseY;
+            let handDetected = false;
+
+            // Check of er een hand in beeld is
+            if (hands && hands.length > 0) {
+                handDetected = true;
+                // Gebruik de 'indexFinger' tip (Landmark 8)
+                let tip = hands[0].annotations.indexFinger[3];
+                
+                // Map de camera coördinaten naar het scherm (ge-spiegeld)
+                targetX = map(tip[0], 0, 640, width, 0);
+                targetY = map(tip[1], 0, 480, 0, height);
+
+                // Teken een subtiele 'focus ring' op je vinger
+                noFill();
+                stroke(0, 255, 204, 150);
+                ellipse(targetX, targetY, 30, 30);
+            }
+
+            // Update alle deeltjes
+            for (let p of particles) {
+                if (handDetected || mouseIsPressed) {
+                    p.attract(targetX, targetY);
+                } else {
+                    p.float();
+                }
+                p.update();
+                p.show();
+            }
+        }
+
+        class Particle {
+            constructor() {
+                this.pos = createVector(random(width), random(height));
+                this.vel = createVector(random(-1, 1), random(-1, 1));
+                this.acc = createVector(0, 0);
+                this.maxSpeed = 6;
+                this.maxForce = 0.3;
+            }
+
+            attract(tx, ty) {
+                let target = createVector(tx, ty);
+                let force = p5.Vector.sub(target, this.pos);
+                let d = force.mag();
+                
+                if (d < 400) {
+                    let s = map(d, 0, 400, 2, 0.1);
+                    force.setMag(this.maxSpeed * s);
+                    force.sub(this.vel);
+                    force.limit(this.maxForce);
+                    this.acc.add(force);
+                }
+            }
+
+            float() {
+                // Rustige dwalende beweging als er geen hand is
+                let n = noise(this.pos.x * 0.005, this.pos.y * 0.005, frameCount * 0.01);
+                let angle = TWO_PI * n;
+                let steer = p5.Vector.fromAngle(angle);
+                steer.mult(0.05);
+                this.acc.add(steer);
+            }
+
+            update() {
+                this.vel.add(this.acc);
+                this.vel.limit(this.maxSpeed);
+                this.pos.add(this.vel);
+                this.acc.mult(0);
+                this.vel.mult(0.97); // Frictie
+
+                // Randen check
+                if (this.pos.x > width) this.pos.x = 0;
+                if (this.pos.x < 0) this.pos.x = width;
+                if (this.pos.y > height) this.pos.y = 0;
+                if (this.pos.y < 0) this.pos.y = height;
+            }
+
+            show() {
+                stroke(0, 255, 204);
+                strokeWeight(2);
+                point(this.pos.x, this.pos.y);
+            }
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
