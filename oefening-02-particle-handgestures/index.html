@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Invisible Controller - Werkende Demo</title>
+    <title>The Attention Storm - Gecorrigeerde Build</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
     <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 
     <style>
@@ -15,86 +16,94 @@
             color: #00ffcc; background: rgba(0,0,0,0.85);
             padding: 20px; border-radius: 10px; border: 2px solid #00ffcc;
             box-shadow: 0 0 15px rgba(0,255,204,0.3);
+            pointer-events: none;
         }
         .loading { color: #ffcc00; animation: blink 1s infinite; }
         .ready { color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
-        .error { color: #ff4444; }
         @keyframes blink { 50% { opacity: 0.5; } }
     </style>
 </head>
 <body>
 
     <div id="status-ui">
-        <div id="loader" class="loading">SYSTEEM INITIALISEREN... ⏳</div>
+        <div id="loader" class="loading">KLIK OP HET SCHERM OM TE STARTEN... ⏳</div>
         <div id="debug" style="font-size: 11px; margin-top: 8px; color: #aaa;">Status: Wachten op camera...</div>
     </div>
 
     <script>
         let handpose;
         let video;
+        let stormNoise, filter, osc; // Variabele naam aangepast naar stormNoise
         let hands = [];
         let particles = [];
-        const numParticles = 700; 
+        const numParticles = 500; 
+        let audioActive = false;
 
         function setup() {
-            // Maak canvas over het hele scherm
             createCanvas(windowWidth, windowHeight);
             
-            // 1. Start de webcam met expliciete callback
-            video = createCapture(VIDEO, function(stream) {
-                document.getElementById('debug').innerText = "Status: Camera actief. Model laden...";
-                console.log("Webcam actief");
+            video = createCapture(VIDEO, () => {
+                console.log("Camera actief");
+                handpose = ml5.handpose(video, modelReady);
+                handpose.on("predict", results => { hands = results; });
             });
-            
             video.size(640, 480);
             video.hide();
 
-            // 2. Initialiseer Handpose
-            // We gebruiken een iets specifiekere versie van ml5 voor stabiliteit
-            handpose = ml5.handpose(video, modelReady);
+            // Audio Setup
+            filter = new p5.LowPass();
+            stormNoise = new p5.Noise('pink'); // Naam aangepast
+            stormNoise.disconnect();
+            stormNoise.connect(filter);
+            
+            osc = new p5.Oscillator('sawtooth');
+            osc.amp(0);
+            osc.freq(40);
 
-            // Luister naar voorspellingen
-            handpose.on("predict", results => {
-                hands = results;
-            });
-
-            // 3. Deeltjes aanmaken
             for (let i = 0; i < numParticles; i++) {
                 particles.push(new Particle());
             }
         }
 
         function modelReady() {
-            console.log("Model is klaar!");
-            document.getElementById('loader').innerText = "CONTROLLER LIVE ✅";
+            document.getElementById('loader').innerText = "SYSTEEM LIVE ✅";
             document.getElementById('loader').className = "ready";
-            document.getElementById('debug').innerText = "Status: Gebruik je hand voor de camera.";
+            document.getElementById('debug').innerText = "Gebruik je hand voor de camera.";
         }
 
         function draw() {
-            background(0, 40); // Licht 'trail' effect
+            background(0, 50); 
             
             let targetX = mouseX; 
             let targetY = mouseY;
             let handDetected = false;
 
-            // Check of er een hand in beeld is
             if (hands && hands.length > 0) {
                 handDetected = true;
-                // Gebruik de 'indexFinger' tip (Landmark 8)
                 let tip = hands[0].annotations.indexFinger[3];
-                
-                // Map de camera coördinaten naar het scherm (ge-spiegeld)
                 targetX = map(tip[0], 0, 640, width, 0);
-                targetY = map(tip[1], 0, 480, 0, height);
+                targetY = map(tip[1], 50, 380, 0, height);
 
-                // Teken een subtiele 'focus ring' op je vinger
                 noFill();
                 stroke(0, 255, 204, 150);
                 ellipse(targetX, targetY, 30, 30);
             }
 
-            // Update alle deeltjes
+            // Audio Logica
+            if (audioActive) {
+                if (handDetected) {
+                    if (!osc.started) { osc.start(); stormNoise.start(); osc.started = true; }
+                    let chaos = constrain(map(targetY, height, 0, 0, 1), 0, 1);
+                    filter.freq(map(chaos, 0, 1, 200, 4000));
+                    osc.amp(map(chaos, 0, 1, 0.05, 0.3), 0.1);
+                    osc.freq(map(chaos, 0, 1, 40, 100));
+                    stormNoise.amp(map(chaos, 0, 1, 0, 0.2), 0.1);
+                } else {
+                    osc.amp(0, 0.5);
+                    stormNoise.amp(0, 0.5);
+                }
+            }
+
             for (let p of particles) {
                 if (handDetected || mouseIsPressed) {
                     p.attract(targetX, targetY);
@@ -106,22 +115,30 @@
             }
         }
 
+        function mousePressed() {
+            if (!audioActive) {
+                userStartAudio();
+                audioActive = true;
+                document.getElementById('debug').innerText = "Audio & Systeem geactiveerd.";
+            }
+        }
+
         class Particle {
             constructor() {
                 this.pos = createVector(random(width), random(height));
                 this.vel = createVector(random(-1, 1), random(-1, 1));
                 this.acc = createVector(0, 0);
-                this.maxSpeed = 6;
-                this.maxForce = 0.3;
+                this.maxSpeed = 5;
+                this.maxForce = 0.25;
             }
 
             attract(tx, ty) {
                 let target = createVector(tx, ty);
                 let force = p5.Vector.sub(target, this.pos);
                 let d = force.mag();
-                
-                if (d < 400) {
-                    let s = map(d, 0, 400, 2, 0.1);
+                let interactionRadius = width * 0.8;
+                if (d < interactionRadius) {
+                    let s = map(d, 0, interactionRadius, 2, 0.1);
                     force.setMag(this.maxSpeed * s);
                     force.sub(this.vel);
                     force.limit(this.maxForce);
@@ -130,7 +147,7 @@
             }
 
             float() {
-                // Rustige dwalende beweging als er geen hand is
+                // Nu werkt noise() weer als de p5 functie!
                 let n = noise(this.pos.x * 0.005, this.pos.y * 0.005, frameCount * 0.01);
                 let angle = TWO_PI * n;
                 let steer = p5.Vector.fromAngle(angle);
@@ -143,23 +160,20 @@
                 this.vel.limit(this.maxSpeed);
                 this.pos.add(this.vel);
                 this.acc.mult(0);
-                this.vel.mult(0.97); // Frictie
-
-                // Randen check
-                if (this.pos.x > width) this.pos.x = 0;
-                if (this.pos.x < 0) this.pos.x = width;
+                this.vel.mult(0.98);
                 if (this.pos.y > height) this.pos.y = 0;
                 if (this.pos.y < 0) this.pos.y = height;
+                if (this.pos.x > width) this.pos.x = 0;
+                if (this.pos.x < 0) this.pos.x = width;
             }
 
             show() {
-    // Kleur gebaseerd op snelheid (hoe sneller, hoe lichter/feller de 'bliksem')
-    let speed = this.vel.mag();
-    let r = map(speed, 0, this.maxSpeed, 50, 255);
-    stroke(r, 100, 255, 150); // Paars/blauwachtige storm-gloed
-    strokeWeight(map(speed, 0, this.maxSpeed, 1, 4));
-    line(this.pos.x, this.pos.y, this.pos.x - this.vel.x * 2, this.pos.y - this.vel.y * 2);
-}
+                let speed = this.vel.mag();
+                let stormColor = lerpColor(color(70, 0, 150), color(0, 255, 204), speed / this.maxSpeed);
+                stroke(stormColor);
+                strokeWeight(map(speed, 0, this.maxSpeed, 1, 3));
+                line(this.pos.x, this.pos.y, this.pos.x - this.vel.x * 2, this.pos.y - this.vel.y * 2);
+            }
         }
 
         function windowResized() {
