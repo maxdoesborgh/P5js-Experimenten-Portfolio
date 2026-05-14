@@ -3,11 +3,10 @@ let stormNoise, filter, zenOsc;
 let handStability = 0; 
 let cleanProgress = 0; 
 let prevTip = {x: 0, y: 0};
-let hashtags = ["#FOMO", "#SCROLL", "#ADS", "#TIKTOK", "#ADHD", "#HYPER", "#MELDING", "#GIVEATTENTION"];
+let hashtags = ["#FOMO", "#SCROLL", "#ADS", "#TIKTOK", "#ADHD", "#HYPER", "#MELDING", "#GIVEATTENTION", "#FASTCONTENT", "#REELS"];
 let audioStarted = false;
 
 function setup() {
-    // Gebruik windowWidth/Height voor volledig scherm
     createCanvas(windowWidth, windowHeight);
     
     video = createCapture(VIDEO, () => {
@@ -23,45 +22,56 @@ function setup() {
 }
 
 function draw() {
-    background(0, 40); 
+    background(0, 45); // Trail effect voor chaos
+
+    let tx = 0;
+    let ty = 0;
 
     if (hands.length > 0) {
+        // Gebruiker is aanwezig: UI updaten
         document.getElementById('idle-msg').style.display = 'none';
         document.getElementById('status-ui').style.opacity = '1';
 
         let tip = hands[0].annotations.indexFinger[3];
-        let tx = map(tip[0], 0, 640, width, 0);
-        let ty = map(tip[1], 50, 400, 0, height);
+        tx = map(tip[0], 0, 640, width, 0);
+        ty = map(tip[1], 50, 400, 0, height);
 
+        // Bewegingscontrole
         let d = dist(tx, ty, prevTip.x, prevTip.y);
         let currentS = (d > 0.5 && d < 7) ? 1 : 0;
         handStability = lerp(handStability, currentS, 0.1);
         
         if (handStability > 0.5) {
-            cleanProgress += 0.005; 
+            cleanProgress += 0.006; // Iets sneller zuiveren voor publiek
         } else if (d > 20) {
-            cleanProgress -= 0.02; 
+            cleanProgress -= 0.015; 
         }
-        cleanProgress = constrain(cleanProgress, 0, 1);
-
-        renderStorm(tx, ty);
-        if (cleanProgress > 0.2) renderZen(tx, ty);
-
+        
+        if (cleanProgress > 0.15) renderZen(tx, ty);
         prevTip = {x: tx, y: ty};
     } else {
+        // Niemand aanwezig: Instructie tonen en langzaam terug naar chaos
         renderIdle();
+        cleanProgress = lerp(cleanProgress, 0, 0.01); 
     }
 
+    cleanProgress = constrain(cleanProgress, 0, 1);
+
+    // De storm draait ALTIJD, intensiteit hangt af van progressie
+    renderStorm();
+    
     handleAudio();
     updateUI();
 }
 
-function renderStorm(tx, ty) {
-    let intensity = map(cleanProgress, 0, 1, 15, 0);
+function renderStorm() {
+    // Hoe schoner de geest (progress), hoe minder hashtags
+    let intensity = map(cleanProgress, 0, 1, 18, 0); 
+    
     for (let i = 0; i < intensity; i++) {
         push();
         fill(random() > 0.5 ? '#ff0044' : '#ffffff');
-        textSize(random(20, 100));
+        textSize(random(30, 120));
         textFont('Arial Black');
         text(random(hashtags), random(width), random(height));
         pop();
@@ -71,14 +81,14 @@ function renderStorm(tx, ty) {
 function renderZen(tx, ty) {
     push();
     noFill();
-    stroke(0, 255, 204, map(cleanProgress, 0, 1, 50, 255));
+    stroke(0, 255, 204, map(cleanProgress, 0, 1, 40, 255));
     strokeWeight(2);
-    let size = map(sin(frameCount * 0.05), -1, 1, 100, 400) * cleanProgress;
+    let size = map(sin(frameCount * 0.05), -1, 1, 150, 450) * cleanProgress;
     ellipse(tx, ty, size, size);
     
-    for(let i=0; i<5; i++) {
+    for(let i=0; i<8; i++) {
         let angle = random(TWO_PI);
-        let r = random(100, 300);
+        let r = random(50, 250);
         point(tx + cos(angle)*r, ty + sin(angle)*r);
     }
     pop();
@@ -86,7 +96,7 @@ function renderZen(tx, ty) {
 
 function renderIdle() {
     document.getElementById('idle-msg').style.display = 'block';
-    document.getElementById('status-ui').style.opacity = '0';
+    document.getElementById('status-ui').style.opacity = '0.4'; // UI blijft licht zichtbaar
 }
 
 function handleAudio() {
@@ -96,7 +106,7 @@ function handleAudio() {
     let stormVol = map(cleanProgress, 0, 0.8, 0.4, 0);
     let zenVol = map(cleanProgress, 0.2, 1, 0, 0.3);
     
-    filter.freq(map(cleanProgress, 0, 1, 5000, 200));
+    filter.freq(map(cleanProgress, 0, 1, 5000, 150));
     stormNoise.amp(constrain(stormVol, 0, 0.4), 0.2);
     zenOsc.amp(constrain(zenVol, 0, 0.3), 0.5);
 }
@@ -111,26 +121,22 @@ function updateUI() {
     if (cleanProgress > 0.9) {
         document.body.classList.add('zen-active');
         mainMsg.innerText = "JE BENT ER ✨";
-        subMsg.innerText = "Blijf in deze flow voor volledige rust";
+        subMsg.innerText = "Focus gevonden in de storm";
     } else {
         document.body.classList.remove('zen-active');
-        mainMsg.innerText = cleanProgress > 0.1 ? "JE ZUIVERT DE STORM..." : "DOORBREEK DE RUIS";
+        mainMsg.innerText = cleanProgress > 0.1 ? "JE ZUIVERT DE RUIS..." : "DOORBREEK DE CHAOS";
     }
 }
 
-// Zorgt dat het canvas vult op ELK schermformaat
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
 }
 
 function mousePressed() {
-    // Start Audio
     if (!audioStarted) {
         userStartAudio();
         audioStarted = true;
     }
-
-    // Activeer Fullscreen (verwijdert alle browserbalken)
     let fs = fullscreen();
     fullscreen(!fs);
 }
