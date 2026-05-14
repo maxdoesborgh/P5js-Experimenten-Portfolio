@@ -7,6 +7,7 @@ let hashtags = ["#FOMO", "#SCROLL", "#ADS", "#TIKTOK", "#ADHD", "#HYPER", "#MELD
 let audioStarted = false;
 
 function setup() {
+    // Gebruik windowWidth/Height voor volledig scherm
     createCanvas(windowWidth, windowHeight);
     
     video = createCapture(VIDEO, () => {
@@ -25,7 +26,6 @@ function draw() {
     background(0, 40); 
 
     if (hands.length > 0) {
-        // Verberg bovenste instructie en toon onderste UI
         document.getElementById('idle-msg').style.display = 'none';
         document.getElementById('status-ui').style.opacity = '1';
 
@@ -85,7 +85,6 @@ function renderZen(tx, ty) {
 }
 
 function renderIdle() {
-    // Toon HTML tekst bovenin en verberg onderste UI
     document.getElementById('idle-msg').style.display = 'block';
     document.getElementById('status-ui').style.opacity = '0';
 }
@@ -119,9 +118,19 @@ function updateUI() {
     }
 }
 
+// Zorgt dat het canvas vult op ELK schermformaat
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+}
+
 function mousePressed() {
+    // Start Audio
     if (!audioStarted) {
         userStartAudio();
         audioStarted = true;
     }
+
+    // Activeer Fullscreen (verwijdert alle browserbalken)
+    let fs = fullscreen();
+    fullscreen(!fs);
 }

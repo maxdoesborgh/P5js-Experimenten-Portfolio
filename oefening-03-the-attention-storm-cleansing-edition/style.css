@@ -4,22 +4,22 @@ body {
     overflow: hidden; 
     background-color: #000; 
     font-family: 'Helvetica', sans-serif; 
+    cursor: none; /* Verbergt de muis voor de installatie */
 }
 
-/* De instructie bovenin */
 #idle-msg {
     position: absolute;
-    top: 40px;
+    top: 50px;
     left: 50%;
     transform: translateX(-50%);
     color: white;
-    font-size: 20px;
-    letter-spacing: 3px;
+    font-size: 24px;
+    letter-spacing: 2px;
     font-weight: bold;
     text-align: center;
     z-index: 110;
     text-transform: uppercase;
-    display: none; /* Wordt door JS getoond indien nodig */
+    display: none;
 }
 
 #status-ui {
@@ -47,5 +47,4 @@ body {
     transition: width 0.3s ease; box-shadow: 0 0 15px #00ffcc;
 }
 
-/* Zen Modus staat */
 .zen-active #main-msg { color: #00ffcc; text-shadow: 0 0 20px #00ffcc; }
