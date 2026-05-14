@@ -1,0 +1,17 @@
+/* Het p5 canvas moet puur visueel zijn en klikken doorlaten */
+.p5Canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    pointer-events: none; /* Cruciaal: laat klikken door naar de body/renderer */
+}
+
+/* De Three.js renderer moet de interactie vangen */
+canvas:not(.p5Canvas) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 10;
+    pointer-events: auto;
+}
