@@ -1,8 +1,37 @@
-body { margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Helvetica', sans-serif; }
+body { 
+    margin: 0; 
+    padding: 0; 
+    overflow: hidden; 
+    background-color: #000; 
+    font-family: 'Helvetica', sans-serif; 
+}
+
+/* De instructie bovenin */
+#idle-msg {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 20px;
+    letter-spacing: 3px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 110;
+    text-transform: uppercase;
+    display: none; /* Wordt door JS getoond indien nodig */
+}
 
 #status-ui {
-    position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
-    text-align: center; color: white; z-index: 100; pointer-events: none;
+    position: absolute; 
+    bottom: 50px; 
+    left: 50%; 
+    transform: translateX(-50%);
+    text-align: center; 
+    color: white; 
+    z-index: 100; 
+    pointer-events: none;
+    transition: opacity 0.5s ease;
 }
 
 #main-msg { font-size: 48px; font-weight: 900; letter-spacing: 5px; margin: 0; text-transform: uppercase; }

@@ -1,7 +1,7 @@
 let handpose, video, hands = [];
 let stormNoise, filter, zenOsc;
-let handStability = 0; // Hoe traag/vloeiend beweegt de gebruiker
-let cleanProgress = 0; // Hoeveel van het scherm is "schoon"
+let handStability = 0; 
+let cleanProgress = 0; 
 let prevTip = {x: 0, y: 0};
 let hashtags = ["#FOMO", "#SCROLL", "#ADS", "#TIKTOK", "#ADHD", "#HYPER", "#MELDING", "#GIVEATTENTION"];
 let audioStarted = false;
@@ -15,7 +15,6 @@ function setup() {
     });
     video.size(640, 480); video.hide();
 
-    // Audio Engine
     filter = new p5.LowPass();
     stormNoise = new p5.Noise('pink');
     stormNoise.disconnect(); stormNoise.connect(filter);
@@ -23,29 +22,28 @@ function setup() {
 }
 
 function draw() {
-    background(0, 40); // Trail effect
+    background(0, 40); 
 
     if (hands.length > 0) {
+        // Verberg bovenste instructie en toon onderste UI
+        document.getElementById('idle-msg').style.display = 'none';
+        document.getElementById('status-ui').style.opacity = '1';
+
         let tip = hands[0].annotations.indexFinger[3];
         let tx = map(tip[0], 0, 640, width, 0);
         let ty = map(tip[1], 50, 400, 0, height);
 
-        // 1. Bereken vloeibaarheid (Velocity check)
         let d = dist(tx, ty, prevTip.x, prevTip.y);
-        
-        // Alleen trage beweging geeft 'stabiliteit' (tussen 1 en 8 pixels per frame)
         let currentS = (d > 0.5 && d < 7) ? 1 : 0;
         handStability = lerp(handStability, currentS, 0.1);
         
-        // 2. Update Progressie
         if (handStability > 0.5) {
-            cleanProgress += 0.005; // Scherm wordt langzaam schoon
+            cleanProgress += 0.005; 
         } else if (d > 20) {
-            cleanProgress -= 0.02; // Te snel bewegen = straf (weer vuil)
+            cleanProgress -= 0.02; 
         }
         cleanProgress = constrain(cleanProgress, 0, 1);
 
-        // 3. Render Visuals
         renderStorm(tx, ty);
         if (cleanProgress > 0.2) renderZen(tx, ty);
 
@@ -71,7 +69,6 @@ function renderStorm(tx, ty) {
 }
 
 function renderZen(tx, ty) {
-    // Een groeiende 'bloem' of rimpeling rond de hand
     push();
     noFill();
     stroke(0, 255, 204, map(cleanProgress, 0, 1, 50, 255));
@@ -79,7 +76,6 @@ function renderZen(tx, ty) {
     let size = map(sin(frameCount * 0.05), -1, 1, 100, 400) * cleanProgress;
     ellipse(tx, ty, size, size);
     
-    // Deeltjes die naar de hand vloeien
     for(let i=0; i<5; i++) {
         let angle = random(TWO_PI);
         let r = random(100, 300);
@@ -89,10 +85,9 @@ function renderZen(tx, ty) {
 }
 
 function renderIdle() {
-    fill(255, 100);
-    textAlign(CENTER);
-    textSize(24);
-    text("STEEK JE HAND UIT OM TE STARTEN", width/2, height/2);
+    // Toon HTML tekst bovenin en verberg onderste UI
+    document.getElementById('idle-msg').style.display = 'block';
+    document.getElementById('status-ui').style.opacity = '0';
 }
 
 function handleAudio() {
@@ -112,7 +107,7 @@ function updateUI() {
     let mainMsg = document.getElementById('main-msg');
     let subMsg = document.getElementById('sub-msg');
     
-    pBar.style.width = (cleanProgress * 100) + "%";
+    if (pBar) pBar.style.width = (cleanProgress * 100) + "%";
 
     if (cleanProgress > 0.9) {
         document.body.classList.add('zen-active');
